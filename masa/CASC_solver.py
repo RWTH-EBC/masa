@@ -37,7 +37,7 @@ class CASCSolver:
         m, n = data.shape
         self.m = m  # observations
         self.n = n  # size of each observation vector
-        logging.info("done retrieving data")
+        logging.debug("done retrieving data")
         self.complete_data = np.zeros([m, window_size*n])
         for i in range(m):
             for k in range(window_size):
@@ -84,7 +84,7 @@ class CASCSolver:
         lam_sparse = self.lambda_param  # sparsity parameter
         K = self.K  # Number of clusters
 
-        logging.info("lambda: %s, beta: %s, clusters: %s, num stacked %s" % (
+        logging.debug("lambda: %s, beta: %s, clusters: %s, num stacked %s" % (
             lam_sparse, beta, K, num_stacked))
 
         train_cluster_inverse = {}
@@ -120,7 +120,7 @@ class CASCSolver:
                 clustered_points, motifs, rankedMotifs = PerformAssignment(
                     clustered_points, LLE_all_points_clusters, self)
                 for m, score in rankedMotifs:
-                    print("%s ---> %s, %s" % (m, len(motifs[m]), score))
+                    logging.info(("%s ---> %s, %s" % (m, len(motifs[m]), score)))
             before_zero = clustered_points.copy()
             self.assignToZeroClusters(
                 clustered_points, old_computed_cov, computed_cov, cluster_mean_stacked_info)
@@ -132,11 +132,15 @@ class CASCSolver:
                     "length of cluster %s --> %s" % (cluster, len(clust_indices[cluster])))
             stop_here = False
             if before_zero in clustered_point_history:
-                logging.info("CONVERGED!!!! BREAKING EARLY!!!")
+                logging.debug("CONVERGED!!!! BREAKING EARLY!!!")
                 stop_here = True
             clustered_point_history.popleft()
             clustered_point_history.append(before_zero)
             if stop_here:
+                if np.bincount(clustered_point_history[-1]).shape[0] != self.K:
+                    clustered_point_history.pop()
+                    clustered_point_history.append(clustered_points)
+
                 break
         bic = computeBIC(self.K, self.m, clustered_point_history[-1], train_cluster_inverse,
                          empirical_covariances)
@@ -144,7 +148,7 @@ class CASCSolver:
         if motifs is not None:
             clusterbic = computeClusterBIC(
                 self.K, self.m, clustered_points, train_cluster_inverse, empirical_covariances, motifs)
-        logging.info("BIC for beta %s clusters %s is %s" % (self.beta, self.K, bic))
+        logging.debug("BIC for beta %s clusters %s is %s" % (self.beta, self.K, bic))
         return (clustered_point_history[-1], train_cluster_inverse, motifs, rankedMotifs, (bic, clusterbic))
 
     def getLikelihood(self, computed_cov, cluster_mean_stacked_info, clustered_points):
